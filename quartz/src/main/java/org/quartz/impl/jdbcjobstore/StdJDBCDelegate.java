@@ -3150,22 +3150,40 @@ public class StdJDBCDelegate implements DriverDelegate, StdJDBCConstants {
         throws ClassNotFoundException, IOException, SQLException {
         Object obj = null;
 
-        Blob blobLocator = rs.getBlob(colName);
-        if (blobLocator != null && blobLocator.length() != 0) {
-            InputStream binaryInput = blobLocator.getBinaryStream();
-
-            if (null != binaryInput) {
-                if (binaryInput instanceof ByteArrayInputStream
-                    && ((ByteArrayInputStream) binaryInput).available() == 0 ) {
-                    //do nothing
+        try {
+            Blob blobLocator = rs.getBlob(colName);
+            if (blobLocator != null && blobLocator.length() != 0) {
+                InputStream binaryInput = blobLocator.getBinaryStream();
+    
+                if (null != binaryInput) {
+                    if (binaryInput instanceof ByteArrayInputStream
+                        && ((ByteArrayInputStream) binaryInput).available() == 0 ) {
+                        //do nothing
+                    } else {
+                        try (ObjectInputStream in = new ObjectInputStream(binaryInput)) {
+                            obj = in.readObject();
+                        }
+                    }
+                }
+    
+            }
+        } catch (Exception e) {
+            // if getBlob from Postgresql occure exception, try getBinaryStream way 
+            logger.erro(" get Blob from Postgresql found error, colName: " + colName);
+            logger.error(e.getMessage());
+            InputStream binayInputStream = rs.getBinaryStream(colName);
+            if (null != binayInputStream) {
+                if (binayInputStream instanceof ByteArrayInputStream
+                    && ((ByteArrayInputStream) binayInputStream).available() == 0) {
+                    // do nothing
                 } else {
-                    try (ObjectInputStream in = new ObjectInputStream(binaryInput)) {
+                    try (ObjectInputStream in = new ObjectInputStream(binayInputStream)) {
                         obj = in.readObject();
                     }
                 }
             }
-
         }
+        
         return obj;
     }
 
